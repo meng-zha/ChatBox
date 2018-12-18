@@ -1,10 +1,10 @@
 from socket import *
 from time import ctime
 
-HOST='166.111.140.14'
-PORT=8000
-BUFSIZ=1024
-ADDR=(HOST,PORT)
+HOST = '166.111.140.14'
+PORT = 8000
+BUFSIZ = 1024
+ADDR = (HOST, PORT)
 
 c = socket(AF_INET, SOCK_STREAM)
 c.connect(ADDR)

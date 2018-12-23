@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 
 from PyQt5.QtWidgets import QDialog
-from Ui_welcome import Ui_Dialog
 from socket import *
 
-HOST = '166.111.140.14'
-PORT = 8000
-BUFSIZ = 1024
-ADDR = (HOST, PORT)
+from Ui_welcome import Ui_Dialog
+from static_var import *
+import pallist
 
 
 class Welcome(QDialog):
@@ -19,6 +17,11 @@ class Welcome(QDialog):
         self.ui.setupUi(self)
 
         self.ui.hints.hide()  # hide the hints at first
+        self.ui.username_lineEdit.setText('2015011463')
+        self.ui.password_lineEdit.setText('net2018')
+
+        self.log_flag = False  # while closed to justify whether to set up list
+        self.pal_list = pallist.PalList('', '')
 
         self.ui.login_button.clicked.connect(self.login)
 
@@ -44,6 +47,22 @@ class Welcome(QDialog):
         c.close()
 
     def accept(self, username):
-        self.close()
+        self.log_flag = True
+        self.hide()
+        self.pal_list = pallist.PalList(username, get_host_ip())
+        self.pal_list.show()
 
-        #TODO: main window use the username
+        self.pal_list.logout_signal.connect(self.show)
+        self.pal_list.logout_signal.connect(self.pal_list.hide)
+
+
+
+def get_host_ip():
+    try:
+        s = socket(AF_INET, SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+    finally:
+        s.close()
+
+    return ip

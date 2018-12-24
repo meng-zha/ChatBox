@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 
-import welcome
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow
+
+from PyQt5.QtWidgets import QApplication
+
+import welcome
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

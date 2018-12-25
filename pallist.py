@@ -5,7 +5,8 @@ import re
 from socket import *
 
 import PyQt5.QtCore as PQC
-from PyQt5.QtWidgets import QMessageBox, QTreeWidgetItem, QWidget
+from PyQt5 import QtGui
+from PyQt5.QtWidgets import QMessageBox, QTreeWidgetItem, QWidget, QMenu, QAction, QInputDialog
 
 from static_var import *
 from Ui_pallist import Ui_Form
@@ -31,6 +32,8 @@ class PalList(QWidget):
         self.chatters = []
         self.root = self.creategroup('My Friends')
         self.root.setExpanded(True)
+        self.ui.treeWidget.setContextMenuPolicy(PQC.Qt.CustomContextMenu)
+        self.ui.treeWidget.customContextMenuRequested[PQC.QPoint].connect(self.contextMenuEvent) 
 
         self.ui.add_Contact.clicked.connect(self.add_Pal)
         self.ui.quit_button.clicked.connect(self.logout)
@@ -91,8 +94,29 @@ class PalList(QWidget):
                 groupdic['pal_online']) + '/' + str(groupdic['pal_count'])
             self.ui.treeWidget.topLevelItem(i).setText(0, groupname)
 
+    def search(self,id):
+        for i in self.grouplist:
+            if id == i['group_name']:
+                return True
+
+        # TODO:需要继续写好友的查询
+
     def chatbox(self):
         if self.ui.treeWidget.currentItem().parent() is not None:
             chatter = chatting.Chatting(self.username, self.ip, self.ui.treeWidget.currentItem().text(0))
             chatter.show()
             self.chatters.append(chatter)
+
+    def contextMenuEvent(self, event):
+        pmenu = QMenu(self)
+        pcontact = QAction('Add Group',self.ui.treeWidget)
+        pcontact.triggered.connect(lambda:self.inputDialog(0))
+        pmenu.addAction(pcontact)
+        pmenu.exec_(QtGui.QCursor.pos())
+
+    def inputDialog(self,flag):
+        if flag == 0:
+            # add contact group
+            text, ok = QInputDialog.getText(self, 'Input', 'Group Name:')
+            if ok:
+                self.creategroup(text)

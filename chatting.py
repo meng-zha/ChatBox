@@ -5,7 +5,7 @@ import re
 from socket import *
 
 import PyQt5.QtCore as PQC
-from PyQt5.QtWidgets import QMessageBox, QTreeWidgetItem, QWidget
+from PyQt5.QtWidgets import QMessageBox, QTreeWidgetItem, QWidget, QMenu, QAction
 
 from Ui_chatting import Ui_Form
 from static_var import *
@@ -21,12 +21,12 @@ class Chatting(QWidget):
         self.target = args[2]
         self.ui.info_display.setText(self.target)
 
-        self.connect = socket(AF_INET,SOCK_STREAM)
+        self.connect = socket(AF_INET, SOCK_STREAM)
         # self.connect.connect((self.target[17:],CHAT_PORT))
 
         self.ui.send_pushButton.clicked.connect(self.sendMessage)
 
     def sendMessage(self):
-        data = self.ui.send_textEdit.document()
+        data = self.ui.send_textEdit.toPlainText()
         if data is not None:
             self.connect.send(data.encode())

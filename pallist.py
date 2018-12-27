@@ -15,7 +15,8 @@ import chatting
 
 class PalList(QWidget):
     logout_signal = PQC.pyqtSignal()
-    refresh_sigal = PQC.pyqtSignal()
+    refresh_signal = PQC.pyqtSignal()
+
     # grouplist = []
 
     def __init__(self, *args):
@@ -27,17 +28,21 @@ class PalList(QWidget):
         self.ip = args[1]
         self.ui.id_Self.setText('id:   ' + self.username)
         self.ui.ip_Self.setText('ip:   ' + self.ip)
-        self.ui.palid_lineEdit.setText('2015011463')
-        self.grouplist = []
-        self.chatters = []
+        self.ui.palid_lineEdit.setText('2016011463')
+        self.grouplist = []  # 存储分组信息
+        self.contactlist = []  #存储好友信息
+        self.chatters = []  #存储聊天框
         self.root = self.creategroup('My Friends')
         self.root.setExpanded(True)
+
+        # 分组右键菜单
         self.ui.treeWidget.setContextMenuPolicy(PQC.Qt.CustomContextMenu)
-        self.ui.treeWidget.customContextMenuRequested[PQC.QPoint].connect(self.contextMenuEvent) 
+        self.ui.treeWidget.customContextMenuRequested[PQC.QPoint].connect(
+            self.contextMenuEvent)
 
         self.ui.add_Contact.clicked.connect(self.add_Pal)
         self.ui.quit_button.clicked.connect(self.logout)
-        self.refresh_sigal.connect(self.refresh)
+        self.refresh_signal.connect(self.refresh)
         self.ui.treeWidget.itemDoubleClicked.connect(self.chatbox)
 
     def add_Pal(self):
@@ -51,13 +56,25 @@ class PalList(QWidget):
             if data == 'Incorrect No.' or data == 'Please send the correct message.':
                 QMessageBox.information(self, "Warning", data)
             else:
-                child = QTreeWidgetItem()
-                child.setText(0, 'id:' + pal_id + ' ip:' + data)
-                self.root.addChild(child)
-                self.grouplist[0]['pal_count'] += 1
-                if data != 'n':
-                    self.grouplist[0]['pal_online'] += 1
-                self.refresh_sigal.emit()
+                if self.search(pal_id) >= -1:
+                    QMessageBox.information(self, "Warning", 'Contact Existed')
+                else:
+                    child = QTreeWidgetItem()
+                    child.setText(0, 'id:' + pal_id + ' ip:' + data)
+                    self.root.addChild(child)
+                    contactdic = {
+                        'contact': child,
+                        'group_index': 0,
+                        'contact_id': pal_id,
+                        'contact_ip': data,
+                        'online': False
+                    }
+                    self.grouplist[0]['pal_count'] += 1
+                    if data != 'n':
+                        self.grouplist[0]['pal_online'] += 1
+                        contactdic['online'] = True
+                    self.contactlist.append(contactdic)
+                    self.refresh_signal.emit()
         else:
             QMessageBox.information(self, "Warning", "Illegal Username!")
 
@@ -92,31 +109,106 @@ class PalList(QWidget):
             groupdic = self.grouplist[i]
             groupname = groupdic['group_name'] + ' ' + str(
                 groupdic['pal_online']) + '/' + str(groupdic['pal_count'])
-            self.ui.treeWidget.topLevelItem(i).setText(0, groupname)
+            groupdic['group'].setText(0, groupname)
 
-    def search(self,id):
-        for i in self.grouplist:
-            if id == i['group_name']:
-                return True
+    def search(self, key):
+        for i, k in enumerate(self.grouplist):
+            if key == k['group_name']:
+                return i
+        if key == self.username:
+            return -1
+        for i, k in enumerate(self.contactlist):
+            if key == k['contact_id']:
+                return i
 
-        # TODO:需要继续写好友的查询
+        return -2
 
     def chatbox(self):
         if self.ui.treeWidget.currentItem().parent() is not None:
-            chatter = chatting.Chatting(self.username, self.ip, self.ui.treeWidget.currentItem().text(0))
+            chatter = chatting.Chatting(
+                self.username, self.ip,
+                self.ui.treeWidget.currentItem().text(0))
             chatter.show()
             self.chatters.append(chatter)
 
-    def contextMenuEvent(self, event):
-        pmenu = QMenu(self)
-        pcontact = QAction('Add Group',self.ui.treeWidget)
-        pcontact.triggered.connect(lambda:self.inputDialog(0))
-        pmenu.addAction(pcontact)
-        pmenu.exec_(QtGui.QCursor.pos())
+    def contextMenuEvent(self):
+        selectitem = self.ui.treeWidget.currentItem()
+        if selectitem:
+            if selectitem.parent() is None:
+                Menu = QMenu(self)
+                AddGroupAct = QAction('Add Group', self.ui.treeWidget)
+                AddGroupAct.triggered.connect(lambda: self.inputDialog(0))
+                Menu.addAction(AddGroupAct)
+                if selectitem is not self.root:
+                    DeleteGroupAct = QAction('Delete Group',
+                                             self.ui.treeWidget)
+                    DeleteGroupAct.triggered.connect(self.deleteGroup)
+                    Menu.addAction(DeleteGroupAct)
+                Menu.exec_(QtGui.QCursor.pos())
+            else:
+                Menu = QMenu(self)
+                DeleteAct = QAction('Delete', Menu)
+                Menu.addAction(DeleteAct)
+                DeleteAct.triggered.connect(self.deleteContact)
+                if len(self.grouplist) > 1:
+                    SubMenu = QMenu('Transfer to', Menu)
+                    Menu.addMenu(SubMenu)
+                    for group_dic in self.grouplist:
+                        if group_dic['group'] is not selectitem.parent():
+                            MoveAct = QAction(group_dic['group_name'], Menu)
+                            SubMenu.addAction(MoveAct)
+                            MoveAct.triggered.connect(self.moveContact)
+                Menu.exec_(QtGui.QCursor.pos())
 
-    def inputDialog(self,flag):
+    def deleteGroup(self):
+        selectItem = self.ui.treeWidget.currentItem()
+        index = self.ui.treeWidget.indexOfTopLevelItem(selectItem)
+        for k, i in enumerate(self.grouplist):
+            if i['group'] is selectItem:
+                self.root.addChildren(selectItem.takeChildren())
+                self.grouplist[0]['pal_count'] += i['pal_count']
+                self.grouplist[0]['pal_online'] += i['pal_online']
+                for j in self.contactlist:
+                    if j['group_index'] is k:
+                        j['group_index'] = 0
+                self.ui.treeWidget.takeTopLevelItem(index)
+                self.grouplist.remove(i)
+        self.refresh_signal.emit()
+
+    def deleteContact(self):
+        selectItem = self.ui.treeWidget.currentItem()
+        for i in self.contactlist:
+            if i['contact'] is selectItem:
+                self.grouplist[i['group_index']]['pal_count'] -= 1
+                if i['online'] is True:
+                    self.grouplist[i['group_index']]['pal_online'] -= 1
+                index = selectItem.parent().indexOfChild(selectItem)
+                selectItem.parent().takeChild(index)
+                self.contactlist.remove(i)
+        self.refresh_signal.emit()
+
+    def moveContact(self):
+        selectItem = self.ui.treeWidget.currentItem()
+        group_name = self.sender().text()
+        indexTo = self.search(group_name)
+        for i in self.contactlist:
+            if i['contact'] is selectItem:
+                selectItem.parent().removeChild(selectItem)
+                self.grouplist[indexTo]['group'].addChild(selectItem)
+                self.grouplist[i['group_index']]['pal_count'] -= 1
+                self.grouplist[indexTo]['pal_count'] += 1
+                if i['online'] is True:
+                    self.grouplist[i['group_index']]['pal_online'] -= 1
+                    self.grouplist[indexTo]['pal_online'] += 1
+                i['group_index'] = indexTo
+        self.refresh_signal.emit()
+
+    def inputDialog(self, flag):
         if flag == 0:
             # add contact group
             text, ok = QInputDialog.getText(self, 'Input', 'Group Name:')
             if ok:
-                self.creategroup(text)
+                if self.search(text) >= 0:
+                    QMessageBox.information(self, "Warning", 'Name Existed')
+                else:
+                    self.creategroup(text)

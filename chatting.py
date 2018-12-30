@@ -19,14 +19,23 @@ class Chatting(QWidget):
         self.username = args[0]
         self.ip = args[1]
         self.target = args[2]
-        self.ui.info_display.setText(self.target)
+        self.ui.info_display.setText(self.target['contact_id']+' '+self.target['contact_ip'])
 
-        self.connect = socket(AF_INET, SOCK_STREAM)
-        # self.connect.connect((self.target[17:],CHAT_PORT))
+        self.connect = None
 
         self.ui.send_pushButton.clicked.connect(self.sendMessage)
 
     def sendMessage(self):
         data = self.ui.send_textEdit.toPlainText()
-        if data is not None:
+        if data:
+            self.connect =socket(AF_INET, SOCK_STREAM)
+            self.connect.connect((self.target['contact_ip'],CHAT_PORT))
             self.connect.send(data.encode())
+            self.ui.send_textEdit.clear()
+            self.connect.close()
+
+    def recvMessage(self,recvSocket):
+        recvData = recvSocket.recv(BUFSIZ)
+        if not recvData:
+            self.ui.info_display.setText(recvData.decoding('utf-8'))
+        recvSocket.close()

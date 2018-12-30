@@ -2,6 +2,10 @@
 
 import random
 import re
+import time
+import threading
+import stoppable_thread
+from multiprocessing import Process
 from socket import *
 
 import PyQt5.QtCore as PQC
@@ -31,9 +35,13 @@ class PalList(QWidget):
         self.ui.palid_lineEdit.setText('2016011463')
         self.grouplist = []  # 存储分组信息
         self.contactlist = []  #存储好友信息
-        self.chatters = []  #存储聊天框
+        self.chatterlist = []  #存储聊天框
         self.root = self.creategroup('My Friends')
         self.root.setExpanded(True)
+
+        self.serverSocket = socket(AF_INET, SOCK_STREAM)
+        self.threadsocket = threading.Thread(target=self.initserver,name='welcome')
+        self.threadsocket.start()
 
         # 分组右键菜单
         self.ui.treeWidget.setContextMenuPolicy(PQC.Qt.CustomContextMenu)
@@ -45,9 +53,21 @@ class PalList(QWidget):
         self.refresh_signal.connect(self.refresh)
         self.ui.treeWidget.itemDoubleClicked.connect(self.chatbox)
 
+    def initserver(self):
+        self.serverSocket.bind(('127.0.0.1', CHAT_PORT))
+        self.serverSocket.listen(10)
+        while(True):
+            try:
+                clientSocket,clientInfo = self.serverSocket.accept()
+                index = self.search_ip(clientInfo)
+                listenThread = threading.Thread(target=self.chatterlist[index].recvMessage,args=(clientSocket,))
+                listenThread.start()
+            except Exception:
+                break
+
     def add_Pal(self):
         pal_id = self.ui.palid_lineEdit.text()
-        if (re.match(r'201\d{7}', pal_id)):
+        if re.match(r'201\d{7}', pal_id):
             consult = socket(AF_INET, SOCK_STREAM)
             consult.connect(ADDR)
             consult.send(('q' + pal_id).encode())
@@ -74,9 +94,13 @@ class PalList(QWidget):
                         self.grouplist[0]['pal_online'] += 1
                         contactdic['online'] = True
                     self.contactlist.append(contactdic)
+                    self.chatterlist.append(None)
                     self.refresh_signal.emit()
         else:
             QMessageBox.information(self, "Warning", "Illegal Username!")
+
+    def __del__(self):
+        del self.serverSocket
 
     def logout(self):
         request = socket(AF_INET, SOCK_STREAM)
@@ -85,6 +109,7 @@ class PalList(QWidget):
 
         data = request.recv(BUFSIZ).decode('utf-8')
         if data == 'loo':
+            self.serverSocket.close()
             self.logout_signal.emit()
         else:
             QMessageBox.information(self, "Warning", 'Logout failed')
@@ -115,21 +140,34 @@ class PalList(QWidget):
         for i, k in enumerate(self.grouplist):
             if key == k['group_name']:
                 return i
-        if key == self.username:
-            return -1
+        # if key == self.username:
+        #     return -1
         for i, k in enumerate(self.contactlist):
             if key == k['contact_id']:
                 return i
-
         return -2
 
+    def search_item(self,key):
+        for i, k in enumerate(self.contactlist):
+            if key == k['contact_ip']:
+                return i
+        return -1
+
+    def search_ip(self,key):
+        for i, k in enumerate(self.contactlist):
+            if key == k['contact']:
+                return i
+        return -1
+
     def chatbox(self):
+        selectItem = self.ui.treeWidget.currentItem()
         if self.ui.treeWidget.currentItem().parent() is not None:
+            index = self.search_item(selectItem)
             chatter = chatting.Chatting(
                 self.username, self.ip,
-                self.ui.treeWidget.currentItem().text(0))
+                self.contactlist[index])
             chatter.show()
-            self.chatters.append(chatter)
+            self.chatterlist[index]=chatter
 
     def contextMenuEvent(self):
         selectitem = self.ui.treeWidget.currentItem()

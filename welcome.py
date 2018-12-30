@@ -2,6 +2,7 @@
 
 from PyQt5.QtWidgets import QDialog
 from socket import *
+import threading
 
 from Ui_welcome import Ui_Dialog
 from static_var import *
@@ -21,7 +22,7 @@ class Welcome(QDialog):
         self.ui.password_lineEdit.setText('net2018')
 
         self.log_flag = False  # while closed to justify whether to set up list
-        self.pal_list = pallist.PalList('', '')
+        self.pal_list = None
 
         self.ui.login_button.clicked.connect(self.login)
 
@@ -49,12 +50,12 @@ class Welcome(QDialog):
     def accept(self, username):
         self.log_flag = True
         self.hide()
+        del self.pal_list  #unbind the port of server socket
         self.pal_list = pallist.PalList(username, get_host_ip())
         self.pal_list.show()
 
         self.pal_list.logout_signal.connect(self.show)
-        self.pal_list.logout_signal.connect(self.pal_list.hide)
-
+        self.pal_list.logout_signal.connect(self.pal_list.close)
 
 
 def get_host_ip():

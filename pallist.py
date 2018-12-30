@@ -4,7 +4,6 @@ import random
 import re
 import time
 import threading
-import stoppable_thread
 from multiprocessing import Process
 from socket import *
 
@@ -54,7 +53,7 @@ class PalList(QWidget):
         self.ui.treeWidget.itemDoubleClicked.connect(self.chatbox)
 
     def initserver(self):
-        self.serverSocket.bind(('127.0.0.1', CHAT_PORT))
+        self.serverSocket.bind((self.ip, CHAT_PORT))
         self.serverSocket.listen(10)
         while(True):
             try:

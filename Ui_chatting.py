@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'd:\ChatBox\chatting.ui'
+# Form implementation generated from reading ui file 'g:\pycharm\ChatBox\chatting.ui'
 #
-# Created by: PyQt5 UI code generator 5.9.2
+# Created by: PyQt5 UI code generator 5.11.3
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -27,6 +27,7 @@ class Ui_Form(object):
         self.send_textEdit.setObjectName("send_textEdit")
         self.gridLayout.addWidget(self.send_textEdit, 1, 0, 1, 2)
         self.info_display = QtWidgets.QTextEdit(Form)
+        self.info_display.setReadOnly(True)
         self.info_display.setObjectName("info_display")
         self.gridLayout.addWidget(self.info_display, 0, 0, 1, 2)
 

@@ -12,6 +12,7 @@ from static_var import *
 
 
 class Chatting(QWidget):
+    write_signal = PQC.pyqtSignal(str)
     def __init__(self, *args):
         super(Chatting, self).__init__()
         self.ui = Ui_Form()
@@ -19,11 +20,13 @@ class Chatting(QWidget):
         self.username = args[0]
         self.ip = args[1]
         self.target = args[2]
-        self.ui.info_display.setText(self.target['contact_id']+' '+self.target['contact_ip'])
+        self.target_info = self.target['contact_id']+' ('+self.target['contact_ip']+')'
+        self.record=''
 
         self.connect = None
 
         self.ui.send_pushButton.clicked.connect(self.sendMessage)
+        self.write_signal.connect(self.writeText)
 
     def sendMessage(self):
         data = self.ui.send_textEdit.toPlainText()
@@ -36,6 +39,10 @@ class Chatting(QWidget):
 
     def recvMessage(self,recvSocket):
         recvData = recvSocket.recv(BUFSIZ)
-        if not recvData:
-            self.ui.info_display.setText(recvData.decoding('utf-8'))
+        if recvData:
+            self.write_signal.emit(recvData.decode('utf-8'))
         recvSocket.close()
+
+    def writeText(self,text):
+        self.record += '\n'+self.target_info+'\n'+text
+        self.ui.info_display.setText(self.record)

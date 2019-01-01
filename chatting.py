@@ -41,18 +41,28 @@ class Chatting(QWidget):
         self.write_signal.connect(self.container)
 
     def sendData(self, itype, content):
-        self.connect = socket(AF_INET, SOCK_STREAM)
-        self.connect.connect((self.target['contact_ip'], CHAT_PORT))
-        data = {
-            'Type': itype,
-            'id': self.target['contact_id'],
-            'ip': self.target['contact_ip'],
-            'data': content
-        }
-        data = pickle.dumps(data)
-        # self.connect.send(data.encode())
-        self.connect.send(data)
-        self.connect.close()
+        if itype!='file':
+            data = {
+                'Type': itype,
+                'id': self.target['contact_id'],
+                'ip': self.target['contact_ip'],
+                'data': content
+            }
+            data = pickle.dumps(data)
+            self.connect = socket(AF_INET, SOCK_STREAM)
+            self.connect.connect((self.target['contact_ip'], CHAT_PORT))
+            self.connect.send(data)
+            self.connect.close()
+            self.connect = None
+        else:
+            if self.connect is None:
+                self.connect = socket(AF_INET, SOCK_STREAM)
+                self.connect.connect((self.target['contact_ip'], CHAT_PORT))
+            if content == '':
+                self.connect.close()
+                self.connect = None
+            else:
+                self.connect.send(content)
 
     def sendMessage(self):
         text = self.ui.send_textEdit.toPlainText()
@@ -80,10 +90,15 @@ class Chatting(QWidget):
         self.sendData('query', self.fileName)
 
     def recvMessage(self, recvSocket):
-        recvData = recvSocket.recv(BUFSIZ)
-        if recvData:
-            # self.write_signal.emit(recvData.decode('utf-8'))
-            self.write_signal.emit(pickle.loads(recvData))
+        while(True):
+            recvData = recvSocket.recv(BUFSIZ)
+            if recvData:
+                try:
+                    self.write_signal.emit(pickle.loads(recvData))
+                except:
+                    self.write_signal.emit({'Type':'file','data':recvData})   
+            else:
+                break
         recvSocket.close()
 
     def container(self, data):
@@ -129,6 +144,6 @@ class Chatting(QWidget):
             if(data['data']==''):
                 QMessageBox.information(self, '','Successful!')
             else:
-                file = open(self.saveName, 'ab')
+                file = codecs.open(self.saveName, 'ab')
                 file.write(data['data'])
                 file.close()

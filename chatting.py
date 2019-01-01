@@ -1,18 +1,24 @@
 # -*- coding: utf-8 -*-
 
+import os
 import random
 import re
+import json
+import codecs
+import threading
 from socket import *
 
 import PyQt5.QtCore as PQC
-from PyQt5.QtWidgets import QMessageBox, QTreeWidgetItem, QWidget, QMenu, QAction
+from PyQt5.QtWidgets import QMessageBox, QTreeWidgetItem, QWidget, QMenu, QAction, QFileDialog, QDialog
 
 from Ui_chatting import Ui_Form
 from static_var import *
+import sendfile
 
 
 class Chatting(QWidget):
     write_signal = PQC.pyqtSignal(str)
+
     def __init__(self, *args):
         super(Chatting, self).__init__()
         self.ui = Ui_Form()
@@ -20,29 +26,106 @@ class Chatting(QWidget):
         self.username = args[0]
         self.ip = args[1]
         self.target = args[2]
-        self.target_info = self.target['contact_id']+' ('+self.target['contact_ip']+')'
-        self.record=''
+        self.fileName = ''
+        self.saveName = ''
+        self.target_info = self.target['contact_id'] + ' (' + self.target[
+            'contact_ip'] + ')'
+        self.record = ''
+        self.sendDialog = None
 
         self.connect = None
 
         self.ui.send_pushButton.clicked.connect(self.sendMessage)
-        self.write_signal.connect(self.writeText)
+        self.ui.files_pushButton.clicked.connect(self.sendFile)
+        self.write_signal.connect(self.container)
+
+    def sendData(self, itype, content):
+        self.connect = socket(AF_INET, SOCK_STREAM)
+        self.connect.connect((self.target['contact_ip'], CHAT_PORT))
+        if itype != 'file':
+            data = {
+                'Type': itype,
+                'id': self.target['contact_id'],
+                'ip': self.target['contact_ip'],
+                'data': content
+            }
+            data = json.dumps(data)
+        else:
+            data = content
+        self.connect.send(data.encode())
+        self.connect.close()
 
     def sendMessage(self):
-        data = self.ui.send_textEdit.toPlainText()
-        if data:
-            self.connect =socket(AF_INET, SOCK_STREAM)
-            self.connect.connect((self.target['contact_ip'],CHAT_PORT))
-            self.connect.send(data.encode())
+        text = self.ui.send_textEdit.toPlainText()
+        if text:
+            self.sendData('message', text)
             self.ui.send_textEdit.clear()
-            self.connect.close()
 
-    def recvMessage(self,recvSocket):
+    def sendFile(self):
+        self.fileName = QFileDialog.getOpenFileName(self, 'Send File', './')[0]
+        if self.fileName:
+            self.sendDialog = sendfile.SendFile()
+            self.sendDialog.ui.filename_label.setText(
+                self.fileName.split("/")[-1])
+            self.sendDialog.ui.ok_pushButton.clicked.connect(self.queryFile)
+            self.sendDialog.ui.reject_pushButton.clicked.connect(
+                self.cancelFile)
+            self.sendDialog.show()
+
+    def cancelFile(self):
+        self.sendDialog.close()
+        del self.sendDialog
+
+    def queryFile(self):
+        self.sendDialog.ui.ok_pushButton.setDisabled(True)
+        self.sendData('query', self.fileName)
+
+    def recvMessage(self, recvSocket):
         recvData = recvSocket.recv(BUFSIZ)
         if recvData:
             self.write_signal.emit(recvData.decode('utf-8'))
         recvSocket.close()
 
-    def writeText(self,text):
-        self.record += '\n'+self.target_info+'\n'+text
-        self.ui.info_display.setText(self.record)
+    def container(self, rawData):
+        try:
+            data = json.loads(rawData)
+            if data['Type'] == 'message':
+                self.record += '\n' + self.target_info + '\n' + data['data']
+                self.ui.info_display.setText(self.record)
+            if data['Type'] == 'query':
+                info = 'File {} from ip={} id={}'.format(data['data'], data['ip'],
+                                                        data['id'])
+                isrecv = QMessageBox.information(self, "query for receive", info,
+                                                QMessageBox.Yes, QMessageBox.No)
+                if isrecv == QMessageBox.Yes:
+                    self.saveName = QFileDialog.getSaveFileName(
+                        self, "save file", data['data'])[0]
+                    if self.saveName:
+                        self.sendData('reply', 'ACK')
+                else:
+                    self.sendData('reply', 'NAK')
+            if data['Type'] == 'reply' and self.sendDialog is not None:
+                if data['data'] == 'NAK':
+                    self.cancelFile()
+                    QMessageBox.information(self, "Warning",
+                                            'Sending File is rejected!')
+                else:
+                    size = os.path.getsize(self.fileName)
+                    iter = 0
+                    file = open(self.fileName, 'rb')
+                    while(True):
+                        filedata = file.read(BUFSIZ)
+                        if not filedata:
+                            break
+                        self.sendData('file', filedata)
+                        iter += 1
+                        self.sendDialog.ui.progressBar.setValue(iter*BUFSIZ/size)
+                    file.close()
+                    self.sendData('file',b'')
+                    self.sendDialog.close()
+                    del self.sendDialog
+        except:
+            file = codecs.open(self.saveName, 'wb')
+            file.write(rawData)
+            file.close()
+            QMessageBox.information(self, '','Successful!')

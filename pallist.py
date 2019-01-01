@@ -4,7 +4,6 @@ import random
 import re
 import time
 import threading
-from multiprocessing import Process
 from socket import *
 
 import PyQt5.QtCore as PQC
@@ -31,7 +30,7 @@ class PalList(QWidget):
         self.ip = args[1]
         self.ui.id_Self.setText('id:   ' + self.username)
         self.ui.ip_Self.setText('ip:   ' + self.ip)
-        self.ui.palid_lineEdit.setText('2016011463')
+        self.ui.palid_lineEdit.setText('2015011463')
         self.grouplist = []  # 存储分组信息
         self.contactlist = []  #存储好友信息
         self.chatterlist = []  #存储聊天框
@@ -109,6 +108,9 @@ class PalList(QWidget):
         data = request.recv(BUFSIZ).decode('utf-8')
         if data == 'loo':
             self.serverSocket.close()
+            for i in self.chatterlist:
+                if i is not None:
+                    i.close()
             self.logout_signal.emit()
         else:
             QMessageBox.information(self, "Warning", 'Logout failed')
@@ -206,7 +208,7 @@ class PalList(QWidget):
                 self.grouplist[0]['pal_count'] += i['pal_count']
                 self.grouplist[0]['pal_online'] += i['pal_online']
                 for j in self.contactlist:
-                    if j['group_index'] is k:
+                    if j['group_index'] == k:
                         j['group_index'] = 0
                 self.ui.treeWidget.takeTopLevelItem(index)
                 self.grouplist.remove(i)

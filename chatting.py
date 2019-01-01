@@ -4,6 +4,7 @@ import os
 import random
 import re
 import json
+import pickle
 import codecs
 import threading
 from socket import *
@@ -17,7 +18,7 @@ import sendfile
 
 
 class Chatting(QWidget):
-    write_signal = PQC.pyqtSignal(str)
+    write_signal = PQC.pyqtSignal(dict)
 
     def __init__(self, *args):
         super(Chatting, self).__init__()
@@ -42,17 +43,15 @@ class Chatting(QWidget):
     def sendData(self, itype, content):
         self.connect = socket(AF_INET, SOCK_STREAM)
         self.connect.connect((self.target['contact_ip'], CHAT_PORT))
-        if itype != 'file':
-            data = {
-                'Type': itype,
-                'id': self.target['contact_id'],
-                'ip': self.target['contact_ip'],
-                'data': content
-            }
-            data = json.dumps(data)
-        else:
-            data = content
-        self.connect.send(data.encode())
+        data = {
+            'Type': itype,
+            'id': self.target['contact_id'],
+            'ip': self.target['contact_ip'],
+            'data': content
+        }
+        data = pickle.dumps(data)
+        # self.connect.send(data.encode())
+        self.connect.send(data)
         self.connect.close()
 
     def sendMessage(self):
@@ -83,49 +82,53 @@ class Chatting(QWidget):
     def recvMessage(self, recvSocket):
         recvData = recvSocket.recv(BUFSIZ)
         if recvData:
-            self.write_signal.emit(recvData.decode('utf-8'))
+            # self.write_signal.emit(recvData.decode('utf-8'))
+            self.write_signal.emit(pickle.loads(recvData))
         recvSocket.close()
 
-    def container(self, rawData):
-        try:
-            data = json.loads(rawData)
-            if data['Type'] == 'message':
-                self.record += '\n' + self.target_info + '\n' + data['data']
-                self.ui.info_display.setText(self.record)
-            if data['Type'] == 'query':
-                info = 'File {} from ip={} id={}'.format(data['data'], data['ip'],
-                                                        data['id'])
-                isrecv = QMessageBox.information(self, "query for receive", info,
-                                                QMessageBox.Yes, QMessageBox.No)
-                if isrecv == QMessageBox.Yes:
-                    self.saveName = QFileDialog.getSaveFileName(
-                        self, "save file", data['data'])[0]
-                    if self.saveName:
-                        self.sendData('reply', 'ACK')
-                else:
-                    self.sendData('reply', 'NAK')
-            if data['Type'] == 'reply' and self.sendDialog is not None:
-                if data['data'] == 'NAK':
-                    self.cancelFile()
-                    QMessageBox.information(self, "Warning",
-                                            'Sending File is rejected!')
-                else:
-                    size = os.path.getsize(self.fileName)
-                    iter = 0
-                    file = open(self.fileName, 'rb')
-                    while(True):
-                        filedata = file.read(BUFSIZ)
-                        if not filedata:
-                            break
-                        self.sendData('file', filedata)
-                        iter += 1
-                        self.sendDialog.ui.progressBar.setValue(iter*BUFSIZ/size)
-                    file.close()
-                    self.sendData('file',b'')
-                    self.sendDialog.close()
-                    del self.sendDialog
-        except:
-            file = codecs.open(self.saveName, 'wb')
-            file.write(rawData)
-            file.close()
-            QMessageBox.information(self, '','Successful!')
+    def container(self, data):
+        # data = pickle.loads(rawData)
+        if data['Type'] == 'message':
+            self.record += '\n' + self.target_info + '\n' + data['data']
+            self.ui.info_display.setText(self.record)
+        if data['Type'] == 'query':
+            info = 'File {} from ip={} id={}'.format(data['data'], data['ip'],
+                                                    data['id'])
+            isrecv = QMessageBox.information(self, "query for receive", info,
+                                            QMessageBox.Yes, QMessageBox.No)
+            if isrecv == QMessageBox.Yes:
+                self.saveName = QFileDialog.getSaveFileName(
+                    self, "save file", data['data'])[0]
+                if self.saveName:
+                    if os.path.exists(self.saveName):
+                        os.remove(self.saveName)
+                    self.sendData('reply', 'ACK')
+            else:
+                self.sendData('reply', 'NAK')
+        if data['Type'] == 'reply' and self.sendDialog is not None:
+            if data['data'] == 'NAK':
+                self.cancelFile()
+                QMessageBox.information(self, "Warning",
+                                        'Sending File is rejected!')
+            else:
+                size = os.path.getsize(self.fileName)
+                iter = 0
+                file = open(self.fileName, 'rb')
+                while(True):
+                    filedata = file.read(BUFSIZ-240)
+                    if not filedata:
+                        break
+                    self.sendData('file', filedata)
+                    iter += 1
+                    self.sendDialog.ui.progressBar.setValue(iter*BUFSIZ/size)
+                file.close()
+                self.sendData('file','')
+                self.sendDialog.close()
+                del self.sendDialog
+        if data['Type'] == 'file':
+            if(data['data']==''):
+                QMessageBox.information(self, '','Successful!')
+            else:
+                file = open(self.saveName, 'ab')
+                file.write(data['data'])
+                file.close()

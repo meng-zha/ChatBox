@@ -58,7 +58,7 @@ class PalList(QWidget):
             try:
                 clientSocket,clientInfo = self.serverSocket.accept()
                 index = self.search_ip(clientInfo)
-                listenThread = threading.Thread(target=self.chatterlist[index].recvMessage,args=(clientSocket,))
+                listenThread = threading.Thread(target=self.chatterlist[index].recvMessage,args=(clientSocket,),name='listen')
                 listenThread.start()
             except Exception:
                 break

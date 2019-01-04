@@ -60,7 +60,7 @@ class PalList(QWidget):
         while (True):
             try:
                 clientSocket, clientInfo = self.serverSocket.accept()
-                index, flag = self.search_ip(clientInfo)
+                index, flag = self.search_ip(clientInfo[0])
                 if flag == 0:
                     listenThread = threading.Thread(
                         target=self.chatterlist[index].recvMessage,
@@ -305,7 +305,7 @@ class PalList(QWidget):
         treeItem = QTreeWidgetItem(self.ui.treeWidget)
         treeItem.setText(0, '(group chatter)' + multicast_info['name'])
 
-        Gchatter = groupchatter.GroupChatter(self.username, self.ip, text,
+        Gchatter = groupchatter.GroupChatter(self.username, self.ip, multicast_info['name'],
                                              multicast_info['addr'])
         Gchatter.consult_signal.connect(self.replyPallist)
         Gchatter.addmem_signal.connect(self.sendMulticast)
@@ -313,9 +313,9 @@ class PalList(QWidget):
         Gchatter.show()
 
         Gchatterdic = {
-            'name': text,
+            'name': multicast_info['name'],
             'chatter': Gchatter,
-            'address': address,
+            'address': multicast_info['addr'],
             'treeItem': treeItem
         }
         self.gchatterlist.append(Gchatterdic)

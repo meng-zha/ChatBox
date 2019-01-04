@@ -45,7 +45,7 @@ class GroupChatter(QWidget):
             self.multicastSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         except AttributeError:
             pass
-        self.multicastSocket.bind((self.ip, MULTICAST_PORT))
+        self.multicastSocket.bind(('', MULTICAST_PORT))
         addr = inet_pton(AF_INET, self.address)
         interface = inet_pton(AF_INET, self.ip)
         self.multicastSocket.setsockopt(IPPROTO_IP, IP_ADD_MEMBERSHIP,
@@ -145,7 +145,7 @@ class GroupChatter(QWidget):
                         QTableWidgetItem(j['contact_ip']))
                     self.sendNewMem(j['contact_id'], j['contact_ip'])
                     multicast_info = {
-                        'target': j['contact_id'],
+                        'target': j['contact_ip'],
                         'mem_info': self.memberlist,
                         'addr': self.address,
                         'name': self.name
@@ -154,6 +154,7 @@ class GroupChatter(QWidget):
 
     def join(self,mem_info):
         self.rowCount += len(mem_info)
+        self.ui.tableWidget.setRowCount(self.rowCount)
         for i,j in enumerate(mem_info):
             self.ui.tableWidget.setItem(i+1,0,QTableWidgetItem(j['id']))
             self.ui.tableWidget.setItem(i+1,1,QTableWidgetItem(j['ip']))

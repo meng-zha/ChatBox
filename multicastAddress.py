@@ -8,3 +8,6 @@ def generateAddress():
     C = random.randint(0,255)
     D = random.randint(0,255)
     return ('{}.{}.{}.{}'.format(A,B,C,D))
+
+def generatePort():
+    return random.randint(5000,10000)

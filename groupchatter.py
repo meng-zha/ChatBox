@@ -41,11 +41,8 @@ class GroupChatter(QWidget):
         self.connect = None
 
         self.multicastSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
-        try:
-            self.multicastSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-        except AttributeError:
-            pass
-        self.multicastSocket.bind((self.ip, MULTICAST_PORT))
+        self.multicastSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+        self.multicastSocket.bind(('', MULTICAST_PORT))
         addr = inet_pton(AF_INET, self.address)
         interface = inet_pton(AF_INET, self.ip)
         self.multicastSocket.setsockopt(IPPROTO_IP, IP_ADD_MEMBERSHIP,
@@ -60,29 +57,20 @@ class GroupChatter(QWidget):
             lambda: self.consult_signal.emit(self.address))
 
     def sendData(self, itype, content):
-        if itype != 'file':
-            data = {
-                'Type': itype,
-                'id': self.id,
-                'ip': self.ip,
-                'data': content
-            }
-            data = pickle.dumps(data)
-            self.connect = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
-            self.connect.setsockopt(IPPROTO_IP, IP_MULTICAST_TTL, 20)
+        data = {
+            'Type': itype,
+            'id': self.id,
+            'ip': self.ip,
+            'data': content
+        }
+        data = pickle.dumps(data)
+        self.connect = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
+        self.connect.setsockopt(IPPROTO_IP, IP_MULTICAST_TTL, 20)
+        self.connect.setsockopt(SOL_IP, IP_MULTICAST_IF, inet_aton(self.ip))
 
-            self.connect.sendto(data, (self.address, MULTICAST_PORT))
-            self.connect.close()
-            self.connect = None
-        else:
-            if self.connect is None:
-                self.connect = socket(AF_INET, SOCK_STREAM)
-                self.connect.connect((self.target['contact_ip'], CHAT_PORT))
-            if content == '':
-                self.connect.close()
-                self.connect = None
-            else:
-                self.connect.send(content)
+        self.connect.sendto(data, (self.address, MULTICAST_PORT))
+        self.connect.close()
+        self.connect = None
 
     def sendMessage(self):
         text = self.ui.send_textEdit.toPlainText()
@@ -145,7 +133,7 @@ class GroupChatter(QWidget):
                         QTableWidgetItem(j['contact_ip']))
                     self.sendNewMem(j['contact_id'], j['contact_ip'])
                     multicast_info = {
-                        'target': j['contact_id'],
+                        'target': j['contact_ip'],
                         'mem_info': self.memberlist,
                         'addr': self.address,
                         'name': self.name
@@ -154,6 +142,7 @@ class GroupChatter(QWidget):
 
     def join(self,mem_info):
         self.rowCount += len(mem_info)
+        self.ui.tableWidget.setRowCount(self.rowCount)
         for i,j in enumerate(mem_info):
             self.ui.tableWidget.setItem(i+1,0,QTableWidgetItem(j['id']))
             self.ui.tableWidget.setItem(i+1,1,QTableWidgetItem(j['ip']))

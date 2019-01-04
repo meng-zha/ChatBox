@@ -13,13 +13,13 @@ from PyQt5.QtWidgets import QMessageBox, QTreeWidgetItem, QWidget, QMenu, QActio
 from static_var import *
 from Ui_pallist import Ui_Form
 import chatting
+import groupchatter
+import multicastAddress
 
 
 class PalList(QWidget):
     logout_signal = PQC.pyqtSignal()
     refresh_signal = PQC.pyqtSignal()
-
-    # grouplist = []
 
     def __init__(self, *args):
         super(PalList, self).__init__()
@@ -34,11 +34,13 @@ class PalList(QWidget):
         self.grouplist = []  # 存储分组信息
         self.contactlist = []  #存储好友信息
         self.chatterlist = []  #存储聊天框
+        self.gchatterlist = []  #存储群聊框
         self.root = self.creategroup('My Friends')
         self.root.setExpanded(True)
 
         self.serverSocket = socket(AF_INET, SOCK_STREAM)
-        self.threadsocket = threading.Thread(target=self.initserver,name='welcome')
+        self.threadsocket = threading.Thread(
+            target=self.initserver, name='welcome')
         self.threadsocket.start()
 
         # 分组右键菜单
@@ -47,6 +49,7 @@ class PalList(QWidget):
             self.contextMenuEvent)
 
         self.ui.add_Contact.clicked.connect(self.add_Pal)
+        self.ui.add_group.clicked.connect(lambda: self.inputDialog(1))
         self.ui.quit_button.clicked.connect(self.logout)
         self.refresh_signal.connect(self.refresh)
         self.ui.treeWidget.itemDoubleClicked.connect(self.chatbox)
@@ -54,11 +57,15 @@ class PalList(QWidget):
     def initserver(self):
         self.serverSocket.bind((self.ip, CHAT_PORT))
         self.serverSocket.listen(10)
-        while(True):
+        while (True):
             try:
-                clientSocket,clientInfo = self.serverSocket.accept()
-                index = self.search_ip(clientInfo)
-                listenThread = threading.Thread(target=self.chatterlist[index].recvMessage,args=(clientSocket,),name='listen')
+                clientSocket, clientInfo = self.serverSocket.accept()
+                index, flag = self.search_ip(clientInfo)
+                if flag == 0:
+                    listenThread = threading.Thread(
+                        target=self.chatterlist[index].recvMessage,
+                        args=(clientSocket, ),
+                        name='listen')
                 listenThread.start()
             except Exception:
                 break
@@ -148,27 +155,37 @@ class PalList(QWidget):
                 return i
         return -2
 
-    def search_item(self,key):
-        for i, k in enumerate(self.contactlist):
-            if key == k['contact_ip']:
-                return i
-        return -1
-
-    def search_ip(self,key):
+    def search_item(self, key):
         for i, k in enumerate(self.contactlist):
             if key == k['contact']:
-                return i
-        return -1
+                return i, 0
+        for i, k in enumerate(self.gchatterlist):
+            if key == k['treeItem']:
+                return i, 1
+        return -1, -1
+
+    def search_ip(self, key):
+        # private ip
+        for i, k in enumerate(self.contactlist):
+            if key == k['contact_ip']:
+                return i, 0
+        # multicast address
+        for i, k in enumerate(self.gchatterlist):
+            if key == k['address']:
+                return i, 1
+        return -1, -1
 
     def chatbox(self):
         selectItem = self.ui.treeWidget.currentItem()
-        if self.ui.treeWidget.currentItem().parent() is not None:
-            index = self.search_item(selectItem)
-            chatter = chatting.Chatting(
-                self.username, self.ip,
-                self.contactlist[index])
+        index, flag = self.search_item(selectItem)
+        if flag == 0:
+            chatter = chatting.Chatting(self.username, self.ip,
+                                        self.contactlist[index])
+            chatter.createMulticast_signal.connect(self.joinGchatter)
             chatter.show()
-            self.chatterlist[index]=chatter
+            self.chatterlist[index] = chatter
+        else:
+            self.gchatterlist[index]['chatter'].show()
 
     def contextMenuEvent(self):
         selectitem = self.ui.treeWidget.currentItem()
@@ -251,3 +268,64 @@ class PalList(QWidget):
                     QMessageBox.information(self, "Warning", 'Name Existed')
                 else:
                     self.creategroup(text)
+        if flag == 1:
+            # add group chatting
+            text, ok = QInputDialog.getText(self, 'Input',
+                                            'GroupChatter Name:')
+            if ok:
+                if self.search(text) >= 0:
+                    QMessageBox.information(self, "Warning", 'Name Existed')
+                else:
+                    self.createGchatter(text)
+
+    def createGchatter(self, text):
+        # generate the non-used address
+        while (True):
+            address = multicastAddress.generateAddress()
+            if self.search_ip(address)[0] == -1:
+                break
+        treeItem = QTreeWidgetItem(self.ui.treeWidget)
+        treeItem.setText(0, '(group chatter)' + text)
+
+        Gchatter = groupchatter.GroupChatter(self.username, self.ip, text,
+                                             address)
+        Gchatter.consult_signal.connect(self.replyPallist)
+        Gchatter.addmem_signal.connect(self.sendMulticast)
+        Gchatter.show()
+
+        Gchatterdic = {
+            'name': text,
+            'chatter': Gchatter,
+            'address': address,
+            'treeItem': treeItem
+        }
+        self.gchatterlist.append(Gchatterdic)
+
+    def joinGchatter(self,multicast_info):
+        treeItem = QTreeWidgetItem(self.ui.treeWidget)
+        treeItem.setText(0, '(group chatter)' + multicast_info['name'])
+
+        Gchatter = groupchatter.GroupChatter(self.username, self.ip, text,
+                                             multicast_info['addr'])
+        Gchatter.consult_signal.connect(self.replyPallist)
+        Gchatter.addmem_signal.connect(self.sendMulticast)
+        Gchatter.join(multicast_info['mem_info'])
+        Gchatter.show()
+
+        Gchatterdic = {
+            'name': text,
+            'chatter': Gchatter,
+            'address': address,
+            'treeItem': treeItem
+        }
+        self.gchatterlist.append(Gchatterdic)
+
+    def replyPallist(self, address):
+        index, flag = self.search_ip(address)
+        if flag == 1:
+            self.gchatterlist[index]['chatter'].addMember(self.contactlist)
+
+    def sendMulticast(self,multicast_info):
+        index,flag = self.search_ip(multicast_info['target'])
+        if flag ==0:
+            self.chatterlist[index].sendMulticast(multicast_info)

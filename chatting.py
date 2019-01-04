@@ -19,6 +19,7 @@ import sendfile
 
 class Chatting(QWidget):
     write_signal = PQC.pyqtSignal(dict)
+    createMulticast_signal = PQC.pyqtSignal(dict)
 
     def __init__(self, *args):
         super(Chatting, self).__init__()
@@ -81,6 +82,9 @@ class Chatting(QWidget):
                 self.cancelFile)
             self.sendDialog.show()
 
+    def sendMulticast(self,multicast_info):
+        self.sendData('multicast',multicast_info)
+
     def cancelFile(self):
         self.sendDialog.close()
         del self.sendDialog
@@ -130,7 +134,7 @@ class Chatting(QWidget):
                 iter = 0
                 file = open(self.fileName, 'rb')
                 while(True):
-                    filedata = file.read(BUFSIZ-240)
+                    filedata = file.read(BUFSIZ)
                     if not filedata:
                         break
                     self.sendData('file', filedata)
@@ -140,6 +144,9 @@ class Chatting(QWidget):
                 self.sendData('file','')
                 self.sendDialog.close()
                 del self.sendDialog
+        if data['Type'] == 'multicast':
+            self.createMulticast_signal.emit(data['data'])
+
         if data['Type'] == 'file':
             if(data['data']==''):
                 QMessageBox.information(self, '','Successful!')

@@ -51,8 +51,11 @@ class Chatting(QWidget):
             }
             data = pickle.dumps(data)
             self.connect = socket(AF_INET, SOCK_STREAM)
-            self.connect.connect((self.target['contact_ip'], CHAT_PORT))
-            self.connect.send(data)
+            try:
+                self.connect.connect((self.target['contact_ip'], CHAT_PORT))
+                self.connect.send(data)
+            except:
+                print('Error')
             self.connect.close()
             self.connect = None
         else:

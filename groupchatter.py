@@ -18,7 +18,7 @@ import addmem
 
 class GroupChatter(QWidget):
     write_signal = PQC.pyqtSignal(dict)
-    consult_signal = PQC.pyqtSignal(str)
+    consult_signal = PQC.pyqtSignal(int)
     addmem_signal = PQC.pyqtSignal(dict)
 
     def __init__(self, *args):
@@ -28,7 +28,7 @@ class GroupChatter(QWidget):
         self.id = args[0]
         self.ip = args[1]
         self.name = args[2]
-        self.address = args[3]
+        self.port = args[3]
         self.record = ''
         self.rowCount = 1
         self.memberlist = [{'id': self.id, 'ip': self.ip}]
@@ -40,21 +40,17 @@ class GroupChatter(QWidget):
 
         self.connect = None
 
-        self.multicastSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
-        self.multicastSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-        self.multicastSocket.bind(('', MULTICAST_PORT))
-        addr = inet_pton(AF_INET, self.address)
-        interface = inet_pton(AF_INET, self.ip)
-        self.multicastSocket.setsockopt(IPPROTO_IP, IP_ADD_MEMBERSHIP,
-                                        addr + interface)
-        self.threadMCsocket = threading.Thread(
+        self.multicastSocket = socket(AF_INET, SOCK_STREAM)
+        self.multicastSocket.bind((self.ip, self.port))
+        self.multicastSocket.listen(10)
+        self.threadsocket = threading.Thread(
             target=self.recvMessage, name='multicast')
-        self.threadMCsocket.start()
+        self.threadsocket.start()
 
         self.ui.send_btn.clicked.connect(self.sendMessage)
         self.write_signal.connect(self.container)
         self.ui.addMem_btn.clicked.connect(
-            lambda: self.consult_signal.emit(self.address))
+            lambda: self.consult_signal.emit(self.port))
 
     def sendData(self, itype, content):
         data = {
@@ -64,12 +60,11 @@ class GroupChatter(QWidget):
             'data': content
         }
         data = pickle.dumps(data)
-        self.connect = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
-        self.connect.setsockopt(IPPROTO_IP, IP_MULTICAST_TTL, 20)
-        self.connect.setsockopt(SOL_IP, IP_MULTICAST_IF, inet_aton(self.ip))
-
-        self.connect.sendto(data, (self.address, MULTICAST_PORT))
-        self.connect.close()
+        self.connect = socket(AF_INET, SOCK_STREAM)
+        for i in self.memberlist:
+            self.connect.connect((i['ip'], self.port))
+            self.connect.send(data)
+            self.connect.close()
         self.connect = None
 
     def sendMessage(self):
@@ -83,13 +78,12 @@ class GroupChatter(QWidget):
 
     def recvMessage(self):
         while (True):
-            recvData = self.multicastSocket.recv(BUFSIZ)
-            if recvData:
-                try:
+            try:
+                clientSocket, clientInfo = self.multicastSocket.accept()
+                recvData = clientSocket.recv(BUFSIZ)
+                if recvData:
                     self.write_signal.emit(pickle.loads(recvData))
-                except:
-                    self.write_signal.emit({'Type': 'file', 'data': recvData})
-            else:
+            except Exception:
                 break
 
     def container(self, data):
@@ -97,13 +91,14 @@ class GroupChatter(QWidget):
         if data['Type'] == 'message':
             self.record += '\n' + data['ip'] + data['id'] + '\n' + data['data']
             self.ui.info_textEdit.setText(self.record)
-        if data['Type'] == 'addmem':
+        if data['Type'] == 'addmem' and data['ip']!= self.ip:
             self.rowCount += 1
+            self.memberlist.append(data['data'])
             self.ui.tableWidget.setRowCount(self.rowCount)
             self.ui.tableWidget.setItem(self.rowCount - 1, 0,
-                                        QTableWidgetItem(j['contact_id']))
+                                        QTableWidgetItem(data['data']['contact_id']))
             self.ui.tableWidget.setItem(self.rowCount - 1, 1,
-                                        QTableWidgetItem(j['contact_ip']))
+                                        QTableWidgetItem(data['data']['contact_ip']))
 
     def addMember(self, pal_list):
         self.candidate = addmem.AddMem()
@@ -135,14 +130,16 @@ class GroupChatter(QWidget):
                     multicast_info = {
                         'target': j['contact_ip'],
                         'mem_info': self.memberlist,
-                        'addr': self.address,
+                        'addr': self.port,
                         'name': self.name
                     }
                     self.addmem_signal.emit(multicast_info)
+                    self.memberlist.append({'id':j['contact_id'],'ip':j['contact_ip']})
 
     def join(self,mem_info):
         self.rowCount += len(mem_info)
         self.ui.tableWidget.setRowCount(self.rowCount)
         for i,j in enumerate(mem_info):
+            self.memberlist.append({'id':j['id'],'ip':j['ip']})
             self.ui.tableWidget.setItem(i+1,0,QTableWidgetItem(j['id']))
             self.ui.tableWidget.setItem(i+1,1,QTableWidgetItem(j['ip']))

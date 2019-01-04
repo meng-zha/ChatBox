@@ -99,7 +99,10 @@ class PalList(QWidget):
                         self.grouplist[0]['pal_online'] += 1
                         contactdic['online'] = True
                     self.contactlist.append(contactdic)
-                    self.chatterlist.append(None)
+                    chatter = chatting.Chatting(self.username, self.ip,
+                                                contactdic)
+                    chatter.createMulticast_signal.connect(self.joinGchatter)
+                    self.chatterlist.append(chatter)
                     self.refresh_signal.emit()
         else:
             QMessageBox.information(self, "Warning", "Illegal Username!")
@@ -171,7 +174,7 @@ class PalList(QWidget):
                 return i, 0
         # multicast address
         for i, k in enumerate(self.gchatterlist):
-            if key == k['address']:
+            if key == k['port']:
                 return i, 1
         return -1, -1
 
@@ -179,11 +182,7 @@ class PalList(QWidget):
         selectItem = self.ui.treeWidget.currentItem()
         index, flag = self.search_item(selectItem)
         if flag == 0:
-            chatter = chatting.Chatting(self.username, self.ip,
-                                        self.contactlist[index])
-            chatter.createMulticast_signal.connect(self.joinGchatter)
-            chatter.show()
-            self.chatterlist[index] = chatter
+            self.chatterlist[index].show()
         else:
             self.gchatterlist[index]['chatter'].show()
 
@@ -281,14 +280,14 @@ class PalList(QWidget):
     def createGchatter(self, text):
         # generate the non-used address
         while (True):
-            address = multicastAddress.generateAddress()
-            if self.search_ip(address)[0] == -1:
+            port = multicastAddress.generatePort()
+            if self.search_ip(port)[0] == -1:
                 break
         treeItem = QTreeWidgetItem(self.ui.treeWidget)
         treeItem.setText(0, '(group chatter)' + text)
 
         Gchatter = groupchatter.GroupChatter(self.username, self.ip, text,
-                                             address)
+                                             port)
         Gchatter.consult_signal.connect(self.replyPallist)
         Gchatter.addmem_signal.connect(self.sendMulticast)
         Gchatter.show()
@@ -296,7 +295,7 @@ class PalList(QWidget):
         Gchatterdic = {
             'name': text,
             'chatter': Gchatter,
-            'address': address,
+            'port': port,
             'treeItem': treeItem
         }
         self.gchatterlist.append(Gchatterdic)
@@ -305,23 +304,23 @@ class PalList(QWidget):
         treeItem = QTreeWidgetItem(self.ui.treeWidget)
         treeItem.setText(0, '(group chatter)' + multicast_info['name'])
 
-        Gchatter = groupchatter.GroupChatter(self.username, self.ip, text,
-                                             multicast_info['addr'])
+        Gchatter = groupchatter.GroupChatter(self.username, self.ip, multicast_info['name'],
+                                             multicast_info['port'])
         Gchatter.consult_signal.connect(self.replyPallist)
         Gchatter.addmem_signal.connect(self.sendMulticast)
         Gchatter.join(multicast_info['mem_info'])
         Gchatter.show()
 
         Gchatterdic = {
-            'name': text,
+            'name': multicast_info['name'],
             'chatter': Gchatter,
-            'address': address,
+            'port': multicast_info['port'],
             'treeItem': treeItem
         }
         self.gchatterlist.append(Gchatterdic)
 
-    def replyPallist(self, address):
-        index, flag = self.search_ip(address)
+    def replyPallist(self, port):
+        index, flag = self.search_ip(port)
         if flag == 1:
             self.gchatterlist[index]['chatter'].addMember(self.contactlist)
 

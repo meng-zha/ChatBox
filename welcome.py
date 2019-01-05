@@ -18,7 +18,7 @@ class Welcome(QDialog):
         self.ui.setupUi(self)
 
         self.ui.hints.hide()  # hide the hints at first
-        self.ui.username_lineEdit.setText('2015011463')
+        self.ui.username_lineEdit.setText('2016011463')
         self.ui.password_lineEdit.setText('net2018')
 
         self.log_flag = False  # while closed to justify whether to set up list

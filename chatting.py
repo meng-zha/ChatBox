@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
 
 import os
-import random
-import re
-import json
+import threading
+import time
 import pickle
 import codecs
-import threading
 from socket import *
 
 import PyQt5.QtCore as PQC
@@ -72,7 +70,9 @@ class Chatting(QWidget):
             self.ui.emoji_table.setCellWidget(i, 1, icon2)
 
     def sendData(self, itype, content):
-        if itype != 'file':
+        selfconnect = socket(AF_INET, SOCK_STREAM)
+        selfconnect.connect((self.ip,CHAT_PORT))
+        if itype != 'file' and itype!= 'emoji':
             data = {
                 'Type': itype,
                 'id': self.target['contact_id'],
@@ -81,15 +81,31 @@ class Chatting(QWidget):
             }
             data = pickle.dumps(data)
             self.connect = socket(AF_INET, SOCK_STREAM)
-            self.connect.settimeout(1)
+            self.connect.settimeout(5)
             try:
                 self.connect.connect((self.target['contact_ip'], CHAT_PORT))
                 self.connect.send(data)
+                selfconnect.send(data)
             except:
                 print('Error')
             self.connect.close()
             self.connect = None
-        else:
+
+        if itype == 'emoji':
+            data = b'EMOJI'+content
+            self.connect = socket(AF_INET, SOCK_STREAM)
+            self.connect.settimeout(5)
+            try:
+                self.connect.connect((self.target['contact_ip'], CHAT_PORT))
+                time.sleep(0.1)
+                self.connect.send(data)
+                selfconnect.send(data)
+            except:
+                print('Error')
+            self.connect.close()
+            self.connect = None
+
+        if itype == 'file':
             if self.connect is None:
                 self.connect = socket(AF_INET, SOCK_STREAM)
                 self.connect.connect((self.target['contact_ip'], CHAT_PORT))
@@ -167,7 +183,10 @@ class Chatting(QWidget):
                 try:
                     self.write_signal.emit(pickle.loads(recvData))
                 except:
-                    self.write_signal.emit({'Type': 'file', 'data': recvData})
+                    if recvData[0:5] == b'EMOJI':
+                        self.write_signal.emit({'Type': 'emoji', 'data': recvData[5:]})
+                    else:
+                        self.write_signal.emit({'Type': 'file', 'data': recvData})
             else:
                 break
         recvSocket.close()

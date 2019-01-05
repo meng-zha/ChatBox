@@ -30,8 +30,9 @@ class PalList(QWidget):
         self.ui = Ui_Form()
         self.ui.setupUi(self)
 
-        if not os.path.exists('./{}/'.format(args[0])):
-            os.makedirs('./{}/'.format(args[0]))
+        self.path='./{}/'.format(args[0])
+        if not os.path.exists(self.path):
+            os.makedirs(self.path)
 
         self.username = args[0]
         self.ip = args[1]
@@ -44,6 +45,8 @@ class PalList(QWidget):
         self.gchatterlist = []  #存储群聊框
         self.root = self.creategroup('My Friends')
         self.root.setExpanded(True)
+
+        self.initContactList()
 
         self.serverSocket = socket(AF_INET, SOCK_STREAM)
         self.threadsocket = threading.Thread(
@@ -94,6 +97,15 @@ class PalList(QWidget):
             except Exception:
                 break
 
+    def initContactList(self):
+        if os.path.exists(self.path + 'contact.txt') and os.path.getsize(self.path + 'contact.txt') > 0:
+            contactStFile = open(self.path + 'contact.txt', 'rb')
+            store_data=contactStFile.read()
+            contactStFile.close()
+            store = pickle.loads(store_data)
+            for i in store:
+                self.added_friend(i['contact_id'],i['contact_ip'])
+
     def dealaddPal(self, message):
         info = message.split('_')
         connect = socket(AF_INET, SOCK_STREAM)
@@ -111,15 +123,15 @@ class PalList(QWidget):
                 self.added_friend(info[1], info[2])
                 connect.send('ok_{}_{}'.format(self.username,
                                                self.ip).encode())
-                connect.close()
             else:
                 connect.send('refuse_{}_{}'.format(self.username,
                                                    self.ip).encode())
-                connect.close()
         if info[0] == 'ok':
             self.added_friend(info[1], info[2])
         if info[0] == 'refuse':
             QMessageBox.information(self, "Warning", 'The request is refused!')
+
+        connect.close()
 
     def add_Pal(self):
         pal_id = self.ui.palid_lineEdit.text()
@@ -187,6 +199,11 @@ class PalList(QWidget):
 
         data = request.recv(BUFSIZ).decode('utf-8')
         if data == 'loo':
+            store = [{'contact_id':i['contact_id'],'contact_ip':i['contact_ip']} for i in self.contactlist]
+            store_data = pickle.dumps(store)
+            contactStFile = open(self.path+'contact.txt','wb')
+            contactStFile.write(store_data)
+            contactStFile.close()
             self.serverSocket.close()
             self.addPalSocket.close()
             for i in self.chatterlist:
@@ -234,8 +251,8 @@ class PalList(QWidget):
         for i, k in enumerate(self.grouplist):
             if key == k['group_name']:
                 return i
-        if key == self.username:
-            return -1
+        # if key == self.username:
+        #     return -1
         for i, k in enumerate(self.contactlist):
             if key == k['contact_id']:
                 return i

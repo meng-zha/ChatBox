@@ -2,7 +2,10 @@
 
 import random
 import re
+import os
 import time
+import codecs
+import pickle
 import threading
 from socket import *
 
@@ -20,11 +23,15 @@ import multicastAddress
 class PalList(QWidget):
     logout_signal = PQC.pyqtSignal()
     refresh_signal = PQC.pyqtSignal()
+    dealadd_signal = PQC.pyqtSignal(str)
 
     def __init__(self, *args):
         super(PalList, self).__init__()
         self.ui = Ui_Form()
         self.ui.setupUi(self)
+
+        if not os.path.exists('./{}/'.format(args[0])):
+            os.makedirs('./{}/'.format(args[0]))
 
         self.username = args[0]
         self.ip = args[1]
@@ -43,6 +50,11 @@ class PalList(QWidget):
             target=self.initserver, name='welcome')
         self.threadsocket.start()
 
+        self.addPalSocket = socket(AF_INET, SOCK_STREAM)
+        self.threadaddPal = threading.Thread(
+            target=self.initaddPalServer, name='addPal')
+        self.threadaddPal.start()
+
         # 分组右键菜单
         self.ui.treeWidget.setContextMenuPolicy(PQC.Qt.CustomContextMenu)
         self.ui.treeWidget.customContextMenuRequested[PQC.QPoint].connect(
@@ -50,9 +62,10 @@ class PalList(QWidget):
 
         self.ui.add_Contact.clicked.connect(self.add_Pal)
         self.ui.add_group.clicked.connect(lambda: self.inputDialog(1))
-        self.ui.quit_button.clicked.connect(self.logout)
+        self.ui.quit_button.clicked.connect(self.close)
         self.refresh_signal.connect(self.refresh)
         self.ui.treeWidget.itemDoubleClicked.connect(self.chatbox)
+        self.dealadd_signal.connect(self.dealaddPal)
 
     def initserver(self):
         self.serverSocket.bind((self.ip, CHAT_PORT))
@@ -60,7 +73,7 @@ class PalList(QWidget):
         while (True):
             try:
                 clientSocket, clientInfo = self.serverSocket.accept()
-                index, flag = self.search_ip(clientInfo)
+                index, flag = self.search_ip(clientInfo[0])
                 if flag == 0:
                     listenThread = threading.Thread(
                         target=self.chatterlist[index].recvMessage,
@@ -69,6 +82,44 @@ class PalList(QWidget):
                 listenThread.start()
             except Exception:
                 break
+
+    def initaddPalServer(self):
+        self.addPalSocket.bind((self.ip, APPLY_PORT))
+        self.addPalSocket.listen(10)
+        while (True):
+            try:
+                clientSocket, clientInfo = self.addPalSocket.accept()
+                recvData = clientSocket.recv(BUFSIZ)
+                self.dealadd_signal.emit(recvData.decode())
+            except Exception:
+                break
+
+    def dealaddPal(self, message):
+        info = message.split('_')
+        connect = socket(AF_INET, SOCK_STREAM)
+        connect.settimeout(1)
+        try:
+            connect.connect((info[2], APPLY_PORT))
+        except:
+            print('ERROR')
+        if info[0] == 'query':
+            isrecv = QMessageBox.information(
+                self,
+                "query for receive", 'query of add pal from {} {}'.format(
+                    info[1], info[2]), QMessageBox.Yes, QMessageBox.No)
+            if isrecv == QMessageBox.Yes:
+                self.added_friend(info[1], info[2])
+                connect.send('ok_{}_{}'.format(self.username,
+                                               self.ip).encode())
+                connect.close()
+            else:
+                connect.send('refuse_{}_{}'.format(self.username,
+                                                   self.ip).encode())
+                connect.close()
+        if info[0] == 'ok':
+            self.added_friend(info[1], info[2])
+        if info[0] == 'refuse':
+            QMessageBox.information(self, "Warning", 'The request is refused!')
 
     def add_Pal(self):
         pal_id = self.ui.palid_lineEdit.text()
@@ -84,28 +135,47 @@ class PalList(QWidget):
                 if self.search(pal_id) >= -1:
                     QMessageBox.information(self, "Warning", 'Contact Existed')
                 else:
-                    child = QTreeWidgetItem()
-                    child.setText(0, 'id:' + pal_id + ' ip:' + data)
-                    self.root.addChild(child)
-                    contactdic = {
-                        'contact': child,
-                        'group_index': 0,
-                        'contact_id': pal_id,
-                        'contact_ip': data,
-                        'online': False
-                    }
-                    self.grouplist[0]['pal_count'] += 1
-                    if data != 'n':
-                        self.grouplist[0]['pal_online'] += 1
-                        contactdic['online'] = True
-                    self.contactlist.append(contactdic)
-                    chatter = chatting.Chatting(self.username, self.ip,
-                                                contactdic)
-                    chatter.createMulticast_signal.connect(self.joinGchatter)
-                    self.chatterlist.append(chatter)
-                    self.refresh_signal.emit()
+                    if data == 'n':
+                        QMessageBox.information(self, "Warning", 'Not online')
+                    else:
+                        connect = socket(AF_INET, SOCK_STREAM)
+                        connect.settimeout(1)
+                        try:
+                            connect.connect((data, APPLY_PORT))
+                            connect.send('query_{}_{}'.format(
+                                self.username, self.ip).encode())
+                        except:
+                            print('ERROR')
+                        connect.close()
         else:
             QMessageBox.information(self, "Warning", "Illegal Username!")
+
+    def added_friend(self, pal_id, pal_ip):
+        child = QTreeWidgetItem()
+        child.setText(0, 'id:' + pal_id + ' ip:' + pal_ip)
+        self.root.addChild(child)
+        contactdic = {
+            'contact': child,
+            'group_index': 0,
+            'contact_id': pal_id,
+            'contact_ip': pal_ip,
+            'online': True
+        }
+        self.grouplist[0]['pal_count'] += 1
+        self.grouplist[0]['pal_online'] += 1
+        self.contactlist.append(contactdic)
+        chatter = chatting.Chatting(self.username, self.ip, contactdic)
+        chatter.createMulticast_signal.connect(self.joinGchatter)
+        chatter.newsform_signal.connect(self.newsform)
+        self.chatterlist.append(chatter)
+        self.refresh_signal.emit()
+
+    def newsform(self,id):
+        # 新消息提示
+        index = self.search(id)
+        if index >=0 :
+            text = self.contactlist[index]['contact'].text(0)
+            self.contactlist[index]['contact'].setText(0,text+'/new message!')
 
     def __del__(self):
         del self.serverSocket
@@ -118,9 +188,22 @@ class PalList(QWidget):
         data = request.recv(BUFSIZ).decode('utf-8')
         if data == 'loo':
             self.serverSocket.close()
+            self.addPalSocket.close()
             for i in self.chatterlist:
-                if i is not None:
-                    i.close()
+                i.close()
+                record = None
+                if os.path.exists(i.path+'record.txt') and os.path.getsize(i.path+'record.txt') > 0:
+                    file = open(i.path+'record.txt','rb')
+                    filecontent = file.read()
+                    file.close()
+                    record = pickle.loads(filecontent)
+                    if record is not None:
+                        record = record.extend(i.record)
+                if record is None:
+                    record = i.record
+                file = codecs.open(i.path+'record.txt','wb')
+                file.write(pickle.dumps(record))
+                file.close()
             self.logout_signal.emit()
         else:
             QMessageBox.information(self, "Warning", 'Logout failed')
@@ -151,8 +234,8 @@ class PalList(QWidget):
         for i, k in enumerate(self.grouplist):
             if key == k['group_name']:
                 return i
-        # if key == self.username:
-        #     return -1
+        if key == self.username:
+            return -1
         for i, k in enumerate(self.contactlist):
             if key == k['contact_id']:
                 return i
@@ -182,8 +265,10 @@ class PalList(QWidget):
         selectItem = self.ui.treeWidget.currentItem()
         index, flag = self.search_item(selectItem)
         if flag == 0:
+            text = selectItem.text(0).split('/')[0]
+            selectItem.setText(0,text)
             self.chatterlist[index].show()
-        else:
+        elif flag == 1:
             self.gchatterlist[index]['chatter'].show()
 
     def contextMenuEvent(self):
@@ -232,6 +317,7 @@ class PalList(QWidget):
 
     def deleteContact(self):
         selectItem = self.ui.treeWidget.currentItem()
+        num,flag = self.search_item(selectItem)
         for i in self.contactlist:
             if i['contact'] is selectItem:
                 self.grouplist[i['group_index']]['pal_count'] -= 1
@@ -240,6 +326,9 @@ class PalList(QWidget):
                 index = selectItem.parent().indexOfChild(selectItem)
                 selectItem.parent().takeChild(index)
                 self.contactlist.remove(i)
+
+        if flag == 0:
+            self.chatterlist.remove(self.chatterlist[num])
         self.refresh_signal.emit()
 
     def moveContact(self):
@@ -300,11 +389,12 @@ class PalList(QWidget):
         }
         self.gchatterlist.append(Gchatterdic)
 
-    def joinGchatter(self,multicast_info):
+    def joinGchatter(self, multicast_info):
         treeItem = QTreeWidgetItem(self.ui.treeWidget)
         treeItem.setText(0, '(group chatter)' + multicast_info['name'])
 
-        Gchatter = groupchatter.GroupChatter(self.username, self.ip, multicast_info['name'],
+        Gchatter = groupchatter.GroupChatter(self.username, self.ip,
+                                             multicast_info['name'],
                                              multicast_info['port'])
         Gchatter.consult_signal.connect(self.replyPallist)
         Gchatter.addmem_signal.connect(self.sendMulticast)
@@ -324,7 +414,16 @@ class PalList(QWidget):
         if flag == 1:
             self.gchatterlist[index]['chatter'].addMember(self.contactlist)
 
-    def sendMulticast(self,multicast_info):
-        index,flag = self.search_ip(multicast_info['target'])
-        if flag ==0:
+    def sendMulticast(self, multicast_info):
+        index, flag = self.search_ip(multicast_info['target'])
+        if flag == 0:
             self.chatterlist[index].sendMulticast(multicast_info)
+
+    def closeEvent(self,event):
+        reply = QMessageBox.question(self, 'Warning',"Do you want to quit?",QMessageBox.Yes | QMessageBox.No,
+                                               QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            self.logout()
+            event.accept()
+        else:
+            event.ignore()

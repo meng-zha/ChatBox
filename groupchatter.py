@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import time
 import random
 import pickle
 import struct
@@ -60,11 +61,15 @@ class GroupChatter(QWidget):
             'data': content
         }
         data = pickle.dumps(data)
-        self.connect = socket(AF_INET, SOCK_STREAM)
         for i in self.memberlist:
-            self.connect.connect((i['ip'], self.port))
-            self.connect.send(data)
-            self.connect.close()
+            self.connect = socket(AF_INET, SOCK_STREAM)
+            self.connect.settimeout(1)
+            try:
+                self.connect.connect((i['ip'], self.port))
+                self.connect.send(data)
+                self.connect.close()
+            except:
+                continue
         self.connect = None
 
     def sendMessage(self):
@@ -91,7 +96,7 @@ class GroupChatter(QWidget):
         if data['Type'] == 'message':
             self.record += '\n' + data['ip'] + data['id'] + '\n' + data['data']
             self.ui.info_textEdit.setText(self.record)
-        if data['Type'] == 'addmem' and data['ip']!= self.ip:
+        if data['Type'] == 'newmem' and data['ip']!= self.ip:
             self.rowCount += 1
             self.memberlist.append(data['data'])
             self.ui.tableWidget.setRowCount(self.rowCount)
@@ -114,10 +119,10 @@ class GroupChatter(QWidget):
             table.setItem(i, 1, QTableWidgetItem(j['contact_ip']))
             if isEmpty or j['online'] == False:
                 check.setFlags(PQC.Qt.NoItemFlags)
-                self.ui.tableWidget.item(i, 1).setFlags(PQC.Qt.NoItemFlags)
+                table.item(i, 1).setFlags(PQC.Qt.NoItemFlags)
         if self.candidate.exec() == QDialog.Accepted:
             for i, j in enumerate(pal_list):
-                if table.item(i, 0).checkState() == PQC.Qt.Checked:
+                if table.item(i, 0).checkState() == PQC.Qt.Checked and table.item(i, 0).flags() != PQC.Qt.NoItemFlags:
                     self.rowCount += 1
                     self.ui.tableWidget.setRowCount(self.rowCount)
                     self.ui.tableWidget.setItem(
@@ -130,11 +135,12 @@ class GroupChatter(QWidget):
                     multicast_info = {
                         'target': j['contact_ip'],
                         'mem_info': self.memberlist,
-                        'addr': self.port,
+                        'port': self.port,
                         'name': self.name
                     }
                     self.addmem_signal.emit(multicast_info)
                     self.memberlist.append({'id':j['contact_id'],'ip':j['contact_ip']})
+                    time.sleep(0.1)
 
     def join(self,mem_info):
         self.rowCount += len(mem_info)

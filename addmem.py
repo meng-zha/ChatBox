@@ -13,3 +13,6 @@ class AddMem(QDialog):
         super(AddMem, self).__init__(*args)
         self.ui = Ui_Dialog()
         self.ui.setupUi(self)
+
+        self.ui.tableWidget.setColumnWidth(0,150)
+        self.ui.tableWidget.setColumnWidth(1,150)

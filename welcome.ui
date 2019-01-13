@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>250</width>
-    <height>200</height>
+    <width>350</width>
+    <height>299</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -18,24 +18,28 @@
   </property>
   <property name="minimumSize">
    <size>
-    <width>250</width>
-    <height>200</height>
+    <width>350</width>
+    <height>290</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
-    <width>250</width>
-    <height>200</height>
+    <width>515</width>
+    <height>336</height>
    </size>
   </property>
   <property name="baseSize">
    <size>
-    <width>200</width>
-    <height>200</height>
+    <width>350</width>
+    <height>300</height>
    </size>
   </property>
   <property name="windowTitle">
    <string>ChatBox</string>
+  </property>
+  <property name="windowIcon">
+   <iconset resource="chatbox.qrc">
+    <normaloff>:/logo/app.jpg</normaloff>:/logo/app.jpg</iconset>
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0">
@@ -43,13 +47,16 @@
      <item row="0" column="0">
       <widget class="QLabel" name="label">
        <property name="text">
-        <string>P2P Chat</string>
+        <string/>
        </property>
        <property name="textFormat">
         <enum>Qt::AutoText</enum>
        </property>
+       <property name="pixmap">
+        <pixmap resource="chatbox.qrc">:/logo/Logo.png</pixmap>
+       </property>
        <property name="scaledContents">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="alignment">
         <set>Qt::AlignCenter</set>
@@ -112,7 +119,9 @@
    </item>
   </layout>
  </widget>
- <resources/>
+ <resources>
+  <include location="chatbox.qrc"/>
+ </resources>
  <connections>
   <connection>
    <sender>exit_button</sender>

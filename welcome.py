@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from PyQt5.QtWidgets import QDialog
+from PyQt5.QtWidgets import QDialog,QMessageBox
 from socket import *
 import threading
 
@@ -18,7 +18,7 @@ class Welcome(QDialog):
         self.ui.setupUi(self)
 
         self.ui.hints.hide()  # hide the hints at first
-        self.ui.username_lineEdit.setText('2016011463')
+        self.ui.username_lineEdit.setText('2015011463')
         self.ui.password_lineEdit.setText('net2018')
 
         self.log_flag = False  # while closed to justify whether to set up list
@@ -28,18 +28,31 @@ class Welcome(QDialog):
 
     def login(self):
         # sign in with the username and password
-        c = socket(AF_INET, SOCK_STREAM)
-        c.connect(ADDR)
-
         username = self.ui.username_lineEdit.text()
         password = self.ui.password_lineEdit.text()
 
         data = username + '_' + password
+        recv = ''
+        c = socket(AF_INET, SOCK_STREAM)
+        c.settimeout(3)
+        try:
+            c.connect(ADDR)
+            c.send(('q'+username).encode())
+            recv = c.recv(BUFSIZ).decode('utf-8')
+        except:
+            QMessageBox.information(self, "Warning", 'Connect Server Exception!')
+            return
+        if recv != 'n':
+            QMessageBox.information(self, "Warning", 'User Has Logged In!\nBut You kicked it!')
+        
+        try:
+            c.send(data.encode())   
+            recv = c.recv(BUFSIZ).decode('utf-8')
+        except:
+            QMessageBox.information(self, "Warning", 'Connect Server Exception!')
+            return
 
-        c.send(data.encode())
-        data = c.recv(BUFSIZ).decode('utf-8')
-
-        if data != 'lol':
+        if recv != 'lol':
             self.ui.hints.show()
         else:
             self.ui.hints.hide()

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'g:\pycharm\ChatBox\welcome.ui'
 #
-# Created by: PyQt5 UI code generator 5.6
+# Created by: PyQt5 UI code generator 5.11.3
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -11,22 +11,27 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
         Dialog.setObjectName("Dialog")
-        Dialog.resize(250, 200)
+        Dialog.resize(350, 299)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(Dialog.sizePolicy().hasHeightForWidth())
         Dialog.setSizePolicy(sizePolicy)
-        Dialog.setMinimumSize(QtCore.QSize(250, 200))
-        Dialog.setMaximumSize(QtCore.QSize(250, 200))
-        Dialog.setBaseSize(QtCore.QSize(200, 200))
+        Dialog.setMinimumSize(QtCore.QSize(350, 290))
+        Dialog.setMaximumSize(QtCore.QSize(515, 336))
+        Dialog.setBaseSize(QtCore.QSize(350, 300))
+        icon = QtGui.QIcon()
+        icon.addPixmap(QtGui.QPixmap(":/logo/app.jpg"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        Dialog.setWindowIcon(icon)
         self.gridLayout = QtWidgets.QGridLayout(Dialog)
         self.gridLayout.setObjectName("gridLayout")
         self.gridLayout_2 = QtWidgets.QGridLayout()
         self.gridLayout_2.setObjectName("gridLayout_2")
         self.label = QtWidgets.QLabel(Dialog)
+        self.label.setText("")
         self.label.setTextFormat(QtCore.Qt.AutoText)
-        self.label.setScaledContents(False)
+        self.label.setPixmap(QtGui.QPixmap(":/logo/Logo.png"))
+        self.label.setScaledContents(True)
         self.label.setAlignment(QtCore.Qt.AlignCenter)
         self.label.setObjectName("label")
         self.gridLayout_2.addWidget(self.label, 0, 0, 1, 1)
@@ -66,10 +71,10 @@ class Ui_Dialog(object):
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
         Dialog.setWindowTitle(_translate("Dialog", "ChatBox"))
-        self.label.setText(_translate("Dialog", "P2P Chat"))
         self.password_label.setText(_translate("Dialog", "Password"))
         self.login_button.setText(_translate("Dialog", "LOGIN"))
         self.username_label.setText(_translate("Dialog", "Username"))
         self.exit_button.setText(_translate("Dialog", "EXIT"))
         self.hints.setText(_translate("Dialog", "Sorry, wrong username or password."))
 
+import chatbox_rc

@@ -1,0 +1,17 @@
+<RCC>
+  <qresource prefix="emoji">
+    <file>emoji/1.gif</file>
+    <file>emoji/2.gif</file>
+    <file>emoji/3.gif</file>
+    <file>emoji/4.gif</file>
+    <file>emoji/5.gif</file>
+    <file>emoji/6.gif</file>
+    <file>emoji/7.gif</file>
+    <file>emoji/8.gif</file>
+  </qresource>
+  <qresource prefix="logo">
+    <file>app.jpg</file>
+    <file>icon.jpg</file>
+    <file>Logo.png</file>
+  </qresource>
+</RCC>

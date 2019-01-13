@@ -9,11 +9,12 @@ from socket import *
 
 import PyQt5.QtCore as PQC
 from PyQt5 import QtGui
-from PyQt5.QtWidgets import QMessageBox, QTreeWidgetItem, QWidget, QLabel, QAction, QFileDialog, QDialog, QTableWidgetItem
+from PyQt5.QtWidgets import QMessageBox, QTreeWidgetItem, QWidget, QLabel, QFileDialog, QDialog, QTableWidgetItem
 
-from Ui_chatting import Ui_Form
+from Ui_chatting import Ui_Chatting
 from static_var import *
 import sendfile
+import chatbox_rc
 
 
 class Chatting(QWidget):
@@ -23,17 +24,19 @@ class Chatting(QWidget):
 
     def __init__(self, *args):
         super(Chatting, self).__init__()
-        self.ui = Ui_Form()
+        self.ui = Ui_Chatting()
         self.ui.setupUi(self)
 
-        self.path='./{}/{}/'.format(args[0],args[2]['contact_id'])
-        if os.path.exists(self.path)==False:
+        self.path = './{}/{}/'.format(args[0], args[2]['contact_id'])
+        if os.path.exists(self.path) == False:
             os.makedirs(self.path)
         self.username = args[0]
         self.ip = args[1]
         self.target = args[2]
+        self.setWindowTitle(args[2]['contact_id'])
         self.fileName = ''
         self.saveName = ''
+        self.file = None
         self.target_info = self.target['contact_id'] + ' (' + self.target[
             'contact_ip'] + ')'
         self.record = []
@@ -54,52 +57,48 @@ class Chatting(QWidget):
     def emojiInit(self):
         self.ui.emoji_table.horizontalHeader().setVisible(False)
         self.ui.emoji_table.verticalHeader().setVisible(False)
-        self.ui.emoji_table.setColumnWidth(0, 200)
-        self.ui.emoji_table.setColumnWidth(1, 200)
+        self.ui.emoji_table.setColumnWidth(0, 100)
+        self.ui.emoji_table.setColumnWidth(1, 100)
         for i in range(4):
-            self.ui.emoji_table.setRowHeight(i, 200)
+            self.ui.emoji_table.setRowHeight(i, 100)
             icon = QLabel('')
             icon.setPixmap(
-                QtGui.QPixmap("./emoji/{}.gif".format(2 * i + 1)).scaled(
-                    195, 195))
+                QtGui.QPixmap(":/emoji/emoji/{}.gif".format(2 * i + 1)).scaled(
+                    95, 95))
             self.ui.emoji_table.setCellWidget(i, 0, icon)
             icon2 = QLabel('')
             icon2.setPixmap(
-                QtGui.QPixmap("./emoji/{}.gif".format(2 * i + 2)).scaled(
-                    195, 195))
+                QtGui.QPixmap(":/emoji/emoji/{}.gif".format(2 * i + 2)).scaled(
+                    95, 95))
             self.ui.emoji_table.setCellWidget(i, 1, icon2)
 
     def sendData(self, itype, content):
-        selfconnect = socket(AF_INET, SOCK_STREAM)
-        selfconnect.connect((self.ip,CHAT_PORT))
-        if itype != 'file' and itype!= 'emoji':
+        if itype != 'file' and itype != 'emoji':
             data = {
                 'Type': itype,
-                'id': self.target['contact_id'],
-                'ip': self.target['contact_ip'],
+                'id': self.username,
+                'ip': self.ip,
                 'data': content
             }
             data = pickle.dumps(data)
             self.connect = socket(AF_INET, SOCK_STREAM)
-            self.connect.settimeout(5)
+            self.connect.settimeout(3)
             try:
                 self.connect.connect((self.target['contact_ip'], CHAT_PORT))
                 self.connect.send(data)
-                selfconnect.send(data)
             except:
-                print('Error')
+                QMessageBox.information(self, "Warning", 'Connect Exception!')
             self.connect.close()
             self.connect = None
 
         if itype == 'emoji':
-            data = b'EMOJI'+content
+            data = b'EMOJI' + content
             self.connect = socket(AF_INET, SOCK_STREAM)
             self.connect.settimeout(5)
             try:
                 self.connect.connect((self.target['contact_ip'], CHAT_PORT))
                 time.sleep(0.1)
                 self.connect.send(data)
-                selfconnect.send(data)
             except:
                 print('Error')
             self.connect.close()
@@ -121,16 +120,32 @@ class Chatting(QWidget):
                 self.connect.send(content)
 
     def sendEmoji(self, i, j):
-        file = open("./emoji/{}.gif".format(2 * i + j +  1 ), 'rb')
-        filedata = file.read()
-        file.close()
+        file = PQC.QFile(":/emoji/emoji/{}.gif".format(2 * i + j + 1))
+        file.open(PQC.QIODevice.ReadOnly)
+        filedata = file.readAll()
         self.sendData('emoji', filedata)
+        data = {
+            'Type': 'emoji',
+            'id': self.username,
+            'ip': self.ip,
+            'data': filedata
+        }
+        self.write_signal.emit(data)
 
     def sendMessage(self):
         text = self.ui.send_textEdit.toPlainText()
         if text:
             self.sendData('message', text)
             self.ui.send_textEdit.clear()
+            data = {
+                'Type': 'message',
+                'id': self.username,
+                'ip': self.ip,
+                'data': text
+            }
+            self.write_signal.emit(data)
+        else:
+            QMessageBox.information(self, "Warning", 'Message is empty!')
 
     def sendFile(self):
         self.fileName = QFileDialog.getOpenFileName(self, 'Send File', './')[0]
@@ -152,10 +167,10 @@ class Chatting(QWidget):
         movie = QtGui.QMovie(filename)
         movie.setCacheMode(QtGui.QMovie.CacheNone)
         movie.frameChanged.connect(self.refreshMovie)
-        self.emojilist[-1]['movie']=movie
+        self.emojilist[-1]['movie'] = movie
         movie.start()
 
-    def searchEmoji(self,item):
+    def searchEmoji(self, item):
         for i in self.emojilist:
             if i['movie'] == item:
                 return i['url']
@@ -163,8 +178,8 @@ class Chatting(QWidget):
     def refreshMovie(self, num):
         movie = self.sender()
         self.ui.info_display.document().addResource(
-            QtGui.QTextDocument.ImageResource, PQC.QUrl(self.searchEmoji(movie)),
-            movie.currentPixmap())
+            QtGui.QTextDocument.ImageResource, PQC.QUrl(
+                self.searchEmoji(movie)), movie.currentPixmap())
         self.ui.info_display.setLineWrapColumnOrWidth(
             self.ui.info_display.lineWrapColumnOrWidth())
 
@@ -174,6 +189,7 @@ class Chatting(QWidget):
 
     def queryFile(self):
         self.sendDialog.ui.ok_pushButton.setDisabled(True)
+        self.sendDialog.ui.reject_pushButton.setDisabled(True)
         self.sendData('query', self.fileName)
 
     def recvMessage(self, recvSocket):
@@ -184,9 +200,23 @@ class Chatting(QWidget):
                     self.write_signal.emit(pickle.loads(recvData))
                 except:
                     if recvData[0:5] == b'EMOJI':
-                        self.write_signal.emit({'Type': 'emoji', 'data': recvData[5:]})
+                        self.write_signal.emit({
+                            'Type':
+                            'emoji',
+                            'id':
+                            self.target['contact_id'],
+                            'ip':
+                            self.target['contact_ip'],
+                            'data':
+                            recvData[5:]
+                        })
                     else:
-                        self.write_signal.emit({'Type': 'file', 'data': recvData})
+                        if self.file == None:
+                            self.file = codecs.open(self.saveName, 'ab')
+                        self.write_signal.emit({
+                            'Type': 'file',
+                            'data': recvData
+                        })
             else:
                 break
         recvSocket.close()
@@ -194,21 +224,26 @@ class Chatting(QWidget):
     def container(self, data):
         # data = pickle.loads(rawData)
         if data['Type'] == 'message':
-            display = '\n' + self.target_info + '\n' + data['data']
+            display = '\n' + data['id'] + ' (' + data[
+                'ip'] + ')' + '\n' + data['data']
             self.ui.info_display.insertPlainText(display)
-            self.newsform_signal.emit(self.username)
+            self.newsform_signal.emit(data['id'])
             self.record.append(data)
 
         if data['Type'] == 'emoji':
+            self.newsform_signal.emit(data['id'])
             self.record.append(data)
-            display = '\n' + self.target_info + '\n'
+            display = '\n' + data['id'] + ' (' + data['ip'] + ')' + '\n'
             self.ui.info_display.insertPlainText(display)
             number = len(self.emojilist)
-            filePath = '{}emoji{}.gif'.format(self.path,number)
-            file = codecs.open(filePath, 'wb')
-            self.emojilist.append({'url':'emoji{}'.format(number),'movie':None})
-            file.write(data['data'])
-            file.close()
+            filePath = '{}emoji{}.gif'.format(self.path, number)
+            file = PQC.QFile(filePath)
+            file.open(PQC.QIODevice.WriteOnly)
+            file.writeData(data['data'])
+            self.emojilist.append({
+                'url': 'emoji{}'.format(number),
+                'movie': None
+            })
             self.insertEmoji(filePath, 'emoji{}'.format(number))
 
         if data['Type'] == 'query':
@@ -242,10 +277,13 @@ class Chatting(QWidget):
                     self.sendData('file', filedata)
                     iter += 1
                     self.sendDialog.ui.progressBar.setValue(
-                        iter * BUFSIZ / size)
+                        iter * BUFSIZ * 100 / size)
+                    print(self.sendDialog.ui.progressBar.value())
                 file.close()
                 self.sendData('file', '')
+                self.sendDialog.ui.progressBar.setValue(100)
                 self.sendDialog.close()
+                QMessageBox.information(self, '', 'Successful!')
                 del self.sendDialog
 
         if data['Type'] == 'multicast':
@@ -254,22 +292,27 @@ class Chatting(QWidget):
         if data['Type'] == 'file':
             if (data['data'] == b'END'):
                 QMessageBox.information(self, '', 'Successful!')
+                self.file.close()
+                self.file = None
             else:
-                file = codecs.open(self.saveName, 'ab')
-                file.write(data['data'])
-                file.close()
+                self.file.write(data['data'])
 
     def historyRecord(self):
-        if os.path.exists(self.path+'record.txt') and os.path.getsize(self.path+'record.txt') > 0:
-            file = open(self.path+'record.txt','rb')
+        if os.path.exists(self.path + 'record.txt'
+                          ) and os.path.getsize(self.path + 'record.txt') > 0:
+            file = open(self.path + 'record.txt', 'rb')
             file_content = file.read()
             file.close()
             record = pickle.loads(file_content)
             if record is not None:
-                self.ui.info_display.moveCursor(QtGui.QTextCursor.Start,QtGui.QTextCursor.MoveAnchor)
-                self.ui.info_display.clear()
+                self.ui.info_display.moveCursor(QtGui.QTextCursor.Start,
+                                                QtGui.QTextCursor.MoveAnchor)
+                tmprecord = self.record
+                self.record = []
                 for i in record:
                     self.container(i)
+                self.record.extend(tmprecord)
 
-            self.ui.info_display.moveCursor(QtGui.QTextCursor.End,QtGui.QTextCursor.MoveAnchor)
-            os.remove(self.path+'record.txt')
+            self.ui.info_display.moveCursor(QtGui.QTextCursor.End,
+                                            QtGui.QTextCursor.MoveAnchor)
+            os.remove(self.path + 'record.txt')

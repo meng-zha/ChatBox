@@ -6,9 +6,15 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>404</width>
-    <height>256</height>
+    <width>399</width>
+    <height>211</height>
    </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
   </property>
   <property name="windowTitle">
    <string>Dialog</string>
@@ -17,14 +23,14 @@
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>40</y>
+     <y>10</y>
      <width>361</width>
      <height>191</height>
     </rect>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout_2">
     <property name="sizeConstraint">
-     <enum>QLayout::SetMaximumSize</enum>
+     <enum>QLayout::SetMinAndMaxSize</enum>
     </property>
     <item>
      <layout class="QVBoxLayout" name="verticalLayout">

@@ -33,10 +33,13 @@ class GroupChatter(QWidget):
         self.record = ''
         self.rowCount = 1
         self.memberlist = [{'id': self.id, 'ip': self.ip}]
+        self.setWindowTitle(self.name)
 
         self.ui.tableWidget.setRowCount(self.rowCount)
         self.ui.tableWidget.setItem(0, 0, QTableWidgetItem(self.id))
         self.ui.tableWidget.setItem(0, 1, QTableWidgetItem(self.ip))
+        self.ui.tableWidget.setColumnWidth(0,135)
+        self.ui.tableWidget.setColumnWidth(1,135)
         self.candidate = None
 
         self.connect = None
@@ -81,6 +84,9 @@ class GroupChatter(QWidget):
     def sendNewMem(self, id, ip):
         self.sendData('newmem', {'id': id, 'ip': ip})
 
+    def sendQuit(self):
+        self.sendData('quit','')
+
     def recvMessage(self):
         while (True):
             try:
@@ -91,19 +97,32 @@ class GroupChatter(QWidget):
             except Exception:
                 break
 
+
     def container(self, data):
         # data = pickle.loads(rawData)
         if data['Type'] == 'message':
-            self.record += '\n' + data['ip'] + data['id'] + '\n' + data['data']
+            display = '\n' + data['id'] + ' (' + data['ip'] + ')' + '\n' + data['data']
+            self.record += display
             self.ui.info_textEdit.setText(self.record)
         if data['Type'] == 'newmem' and data['ip']!= self.ip:
             self.rowCount += 1
             self.memberlist.append(data['data'])
             self.ui.tableWidget.setRowCount(self.rowCount)
             self.ui.tableWidget.setItem(self.rowCount - 1, 0,
-                                        QTableWidgetItem(data['data']['contact_id']))
+                                        QTableWidgetItem(data['data']['id']))
             self.ui.tableWidget.setItem(self.rowCount - 1, 1,
-                                        QTableWidgetItem(data['data']['contact_ip']))
+                                        QTableWidgetItem(data['data']['ip']))
+        if data['Type'] == 'quit':
+            if data['ip'] == self.ip:
+                self.multicastSocket.close()
+            else:
+                for i in range(self.rowCount):
+                    if self.ui.tableWidget.item(i,0):
+                        if self.ui.tableWidget.item(i,0).text() == data['id']:
+                            self.ui.tableWidget.removeRow(i)
+                            self.rowCount -= 1
+                            self.ui.tableWidget.setRowCount(self.rowCount)
+                            self.memberlist.remove(self.memberlist[i])
 
     def addMember(self, pal_list):
         self.candidate = addmem.AddMem()

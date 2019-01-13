@@ -1,21 +1,44 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>Form</class>
- <widget class="QWidget" name="Form">
+ <class>Chatting</class>
+ <widget class="QWidget" name="Chatting">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>552</width>
-    <height>413</height>
+    <width>629</width>
+    <height>525</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Form</string>
   </property>
+  <property name="windowIcon">
+   <iconset resource="chatbox.qrc">
+    <normaloff>:/logo/app.jpg</normaloff>:/logo/app.jpg</iconset>
+  </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="3" rowspan="3">
-    <widget class="QTableWidget" name="emoji_table"/>
+    <widget class="QTableWidget" name="emoji_table">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>200</width>
+       <height>0</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>200</width>
+       <height>16777215</height>
+      </size>
+     </property>
+    </widget>
    </item>
    <item row="1" column="0" colspan="3">
     <widget class="QTextEdit" name="send_textEdit"/>
@@ -43,6 +66,18 @@
    </item>
    <item row="0" column="0" colspan="3">
     <widget class="QTextEdit" name="info_display">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>400</width>
+       <height>300</height>
+      </size>
+     </property>
      <property name="readOnly">
       <bool>true</bool>
      </property>
@@ -50,6 +85,8 @@
    </item>
   </layout>
  </widget>
- <resources/>
+ <resources>
+  <include location="chatbox.qrc"/>
+ </resources>
  <connections/>
 </ui>

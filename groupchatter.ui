@@ -6,19 +6,37 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>436</width>
-    <height>348</height>
+    <width>729</width>
+    <height>564</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Form</string>
   </property>
+  <property name="windowIcon">
+   <iconset resource="chatbox.qrc">
+    <normaloff>:/logo/app.jpg</normaloff>:/logo/app.jpg</iconset>
+  </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0">
-    <widget class="QTextEdit" name="info_textEdit"/>
+    <widget class="QTextEdit" name="info_textEdit">
+     <property name="minimumSize">
+      <size>
+       <width>400</width>
+       <height>300</height>
+      </size>
+     </property>
+    </widget>
    </item>
    <item row="1" column="0">
-    <widget class="QTextEdit" name="send_textEdit"/>
+    <widget class="QTextEdit" name="send_textEdit">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>200</height>
+      </size>
+     </property>
+    </widget>
    </item>
    <item row="2" column="0">
     <widget class="QPushButton" name="send_btn">
@@ -36,6 +54,24 @@
    </item>
    <item row="0" column="1" rowspan="2">
     <widget class="QTableWidget" name="tableWidget">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>300</width>
+       <height>0</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>300</width>
+       <height>16777215</height>
+      </size>
+     </property>
      <column>
       <property name="text">
        <string>id</string>
@@ -50,6 +86,8 @@
    </item>
   </layout>
  </widget>
- <resources/>
+ <resources>
+  <include location="chatbox.qrc"/>
+ </resources>
  <connections/>
 </ui>
